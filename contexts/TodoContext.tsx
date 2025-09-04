@@ -78,25 +78,31 @@ const TodoContext = createContext<{
 export function TodoProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(todoReducer, initialState);
 
-  // Step 9: Load todos from localStorage on component mount
+  // Step 9: Load todos from localStorage on component mount (user-specific)
   useEffect(() => {
-    const savedTodos = localStorage.getItem('todos');
-    if (savedTodos) {
-      try {
-        const parsedTodos = JSON.parse(savedTodos).map((todo: any) => ({
-          ...todo,
-          createdAt: new Date(todo.createdAt),
-        }));
-        dispatch({ type: 'LOAD_TODOS', payload: parsedTodos });
-      } catch (error) {
-        console.error('Error loading todos from localStorage:', error);
+    const userId = localStorage.getItem('user-id');
+    if (userId) {
+      const savedTodos = localStorage.getItem(`todos-${userId}`);
+      if (savedTodos) {
+        try {
+          const parsedTodos = JSON.parse(savedTodos).map((todo: any) => ({
+            ...todo,
+            createdAt: new Date(todo.createdAt),
+          }));
+          dispatch({ type: 'LOAD_TODOS', payload: parsedTodos });
+        } catch (error) {
+          console.error('Error loading todos from localStorage:', error);
+        }
       }
     }
   }, []);
 
-  // Step 10: Save todos to localStorage whenever todos change
+  // Step 10: Save todos to localStorage whenever todos change (user-specific)
   useEffect(() => {
-    localStorage.setItem('todos', JSON.stringify(state.todos));
+    const userId = localStorage.getItem('user-id');
+    if (userId) {
+      localStorage.setItem(`todos-${userId}`, JSON.stringify(state.todos));
+    }
   }, [state.todos]);
 
   return (
