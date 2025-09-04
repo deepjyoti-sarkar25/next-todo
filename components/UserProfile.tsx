@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, LogOut, Settings, Calendar } from 'lucide-react';
+import { LogOut, Settings, Calendar } from 'lucide-react';
 
 // Step 39: Create user profile component
 export default function UserProfile() {

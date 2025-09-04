@@ -12,8 +12,6 @@ import { LogIn, UserPlus } from 'lucide-react';
 
 // Step 51: Create the main todo app page with authentication
 function TodoApp() {
-  const { state } = useAuth();
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="container mx-auto px-4">
