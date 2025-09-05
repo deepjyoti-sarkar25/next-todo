@@ -57,50 +57,65 @@ const AuthContext = createContext<{
   logout: () => void;
 } | null>(null);
 
-// Step 6: Mock authentication service (in a real app, this would call your API)
+// Step 6: Authentication service that calls our API
 const authService = {
   async login(credentials: LoginCredentials): Promise<{ user: User; token: string }> {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock validation - in real app, validate against your backend
-    if (credentials.email === 'demo@example.com' && credentials.password === 'password') {
-      const user: User = {
-        id: '1',
-        email: credentials.email,
-        name: 'Demo User',
-        createdAt: new Date(),
-      };
-      
-      const token = 'mock-jwt-token-' + Date.now();
-      return { user, token };
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Login failed');
     }
-    
-    throw new Error('Invalid credentials');
+
+    return data;
   },
 
   async register(credentials: RegisterCredentials): Promise<{ user: User; token: string }> {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock validation
-    if (credentials.password !== credentials.confirmPassword) {
-      throw new Error('Passwords do not match');
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Registration failed');
     }
-    
-    if (credentials.password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
+
+    return data;
+  },
+
+  async getCurrentUser(): Promise<User | null> {
+    const token = localStorage.getItem('auth-token');
+    if (!token) return null;
+
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      return data.user;
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+      return null;
     }
-    
-    const user: User = {
-      id: Date.now().toString(),
-      email: credentials.email,
-      name: credentials.name,
-      createdAt: new Date(),
-    };
-    
-    const token = 'mock-jwt-token-' + Date.now();
-    return { user, token };
   }
 };
 
@@ -111,15 +126,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Step 8: Check for existing authentication on mount
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
         const token = localStorage.getItem('auth-token');
-        const userData = localStorage.getItem('user-data');
         
-        if (token && userData) {
-          const user = JSON.parse(userData);
-          localStorage.setItem('user-id', user.id);
-          dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+        if (token) {
+          // Verify token with server
+          const user = await authService.getCurrentUser();
+          if (user) {
+            localStorage.setItem('user-id', user._id);
+            dispatch({ type: 'LOGIN_SUCCESS', payload: user });
+          } else {
+            // Token is invalid, clear it
+            localStorage.removeItem('auth-token');
+            localStorage.removeItem('user-data');
+            localStorage.removeItem('user-id');
+            dispatch({ type: 'SET_LOADING', payload: false });
+          }
         } else {
           dispatch({ type: 'SET_LOADING', payload: false });
         }
@@ -143,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Store in localStorage
       localStorage.setItem('auth-token', token);
       localStorage.setItem('user-data', JSON.stringify(user));
-      localStorage.setItem('user-id', user.id);
+      localStorage.setItem('user-id', user._id);
       
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
     } catch (error) {
@@ -161,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Store in localStorage
       localStorage.setItem('auth-token', token);
       localStorage.setItem('user-data', JSON.stringify(user));
-      localStorage.setItem('user-id', user.id);
+      localStorage.setItem('user-id', user._id);
       
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
     } catch (error) {
@@ -172,10 +195,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Step 11: Logout function
   const logout = () => {
-    localStorage.removeItem('auth-token');
-    localStorage.removeItem('user-data');
-    localStorage.removeItem('user-id');
-    dispatch({ type: 'LOGOUT' });
+    try {
+      console.log('Logout initiated...');
+      
+      // Clear localStorage
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('user-data');
+      localStorage.removeItem('user-id');
+      console.log('localStorage cleared');
+      
+      // Clear all cookies (more comprehensive approach)
+      document.cookie.split(";").forEach(function(c) { 
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+      });
+      console.log('Cookies cleared');
+      
+      // Dispatch logout action
+      dispatch({ type: 'LOGOUT' });
+      console.log('Logout action dispatched');
+      
+      // Force a page reload to ensure server-side auth is cleared
+      console.log('Redirecting to home page...');
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Even if there's an error, try to redirect
+      window.location.href = '/';
+    }
   };
 
   // Prevent hydration mismatch by not rendering until hydrated

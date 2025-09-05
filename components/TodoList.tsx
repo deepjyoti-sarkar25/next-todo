@@ -4,7 +4,7 @@ import React from 'react';
 import { useTodos } from '@/contexts/TodoContext';
 import { FilterType } from '@/types/todo';
 import TodoItem from './TodoItem';
-import { ListTodo, CheckCircle, Circle } from 'lucide-react';
+import { ListTodo, CheckCircle, Circle, Loader2 } from 'lucide-react';
 
 // Step 21: Create a component that displays the list of todos with filtering
 export default function TodoList() {
@@ -94,7 +94,12 @@ export default function TodoList() {
 
       {/* Step 28: Todo list */}
       <div className="space-y-3">
-        {filteredTodos.length === 0 ? (
+        {state.isLoading ? (
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            <Loader2 size={48} className="mx-auto mb-4 animate-spin" />
+            <p className="text-lg">Loading todos...</p>
+          </div>
+        ) : filteredTodos.length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             {state.filter === 'all' && totalTodos === 0 && (
               <div>
@@ -120,7 +125,7 @@ export default function TodoList() {
           </div>
         ) : (
           filteredTodos.map(todo => (
-            <TodoItem key={todo.id} todo={todo} />
+            <TodoItem key={todo._id} todo={todo} />
           ))
         )}
       </div>

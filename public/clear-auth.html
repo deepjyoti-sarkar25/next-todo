@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Auth Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Clearing Authentication Data...</h1>
+        <div id="status" class="status" style="display: none;"></div>
+        
+        <div class="info">
+            <strong>Why clear auth data?</strong><br>
+            If you're getting "Cast to ObjectId failed" errors, it means you have old JWT tokens in your browser that contain invalid data. This page will clear all authentication data so you can start fresh.
+        </div>
+        
+        <p>This will clear all stored authentication data from your browser:</p>
+        <ul>
+            <li>localStorage items (auth-token, user-data, user-id)</li>
+            <li>auth-token cookie</li>
+            <li>Any other auth-related data</li>
+        </ul>
+    </div>
+    
+    <script>
+        function clearAuthData() {
+            try {
+                // Clear localStorage
+                localStorage.clear();
+                
+                // Clear all cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                // Show success message
+                const status = document.getElementById('status');
+                status.style.display = 'block';
+                status.className = 'status success';
+                status.textContent = 'Authentication data cleared successfully! Redirecting to app...';
+                
+                console.log('Auth data cleared!');
+                
+                // Redirect to home page
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error clearing auth data:', error);
+                const status = document.getElementById('status');
+                status.style.display = 'block';
+                status.className = 'status error';
+                status.textContent = 'Error clearing auth data: ' + error.message;
+            }
+        }
+        
+        // Auto-clear on page load
+        window.onload = function() {
+            clearAuthData();
+        };
+    </script>
+</body>
+</html>

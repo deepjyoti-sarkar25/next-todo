@@ -1,45 +1,21 @@
-'use client';
-
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { redirect } from 'next/navigation';
+import { getServerSideUser } from '@/lib/auth';
 import RegisterForm from '@/components/RegisterForm';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
-// Step 35: Create register page content component
-function RegisterPageContent() {
-  const { state } = useAuth();
-  const router = useRouter();
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (state.isAuthenticated && !state.isLoading) {
-      router.push('/');
-    }
-  }, [state.isAuthenticated, state.isLoading, router]);
-
-  // Show loading while checking authentication
-  if (state.isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render register form if already authenticated
-  if (state.isAuthenticated) {
-    return null;
+export default async function RegisterPage() {
+  // Check if user is already authenticated
+  const user = await getServerSideUser();
+  
+  if (user) {
+    redirect('/');
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        {/* Step 36: Back to home link */}
+        {/* Back to home link */}
         <div className="text-center">
           <Link
             href="/"
@@ -50,10 +26,10 @@ function RegisterPageContent() {
           </Link>
         </div>
 
-        {/* Step 37: Register form */}
+        {/* Register form */}
         <RegisterForm />
 
-        {/* Step 38: Link to login */}
+        {/* Link to login */}
         <div className="text-center">
           <p className="text-gray-600 dark:text-gray-400">
             Already have an account?{' '}
@@ -67,14 +43,5 @@ function RegisterPageContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Step 35: Create register page
-export default function RegisterPage() {
-  return (
-    <AuthProvider>
-      <RegisterPageContent />
-    </AuthProvider>
   );
 }

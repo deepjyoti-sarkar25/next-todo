@@ -79,6 +79,7 @@ export default function UserProfile() {
             
             <button
               onClick={() => {
+                console.log('Logout button clicked');
                 logout();
                 setIsDropdownOpen(false);
               }}

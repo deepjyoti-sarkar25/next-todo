@@ -1,26 +1,29 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { Todo, FilterType } from '@/types/todo';
 
 // Step 3: Define the shape of our todo state
 interface TodoState {
   todos: Todo[];
   filter: FilterType;
+  isLoading: boolean;
 }
 
 // Step 4: Define actions that can modify our state
 type TodoAction =
-  | { type: 'ADD_TODO'; payload: string }
-  | { type: 'TOGGLE_TODO'; payload: string }
+  | { type: 'ADD_TODO'; payload: Todo }
+  | { type: 'UPDATE_TODO'; payload: Todo }
   | { type: 'DELETE_TODO'; payload: string }
   | { type: 'SET_FILTER'; payload: FilterType }
-  | { type: 'LOAD_TODOS'; payload: Todo[] };
+  | { type: 'LOAD_TODOS'; payload: Todo[] }
+  | { type: 'SET_LOADING'; payload: boolean };
 
 // Step 5: Create the initial state
 const initialState: TodoState = {
   todos: [],
   filter: 'all',
+  isLoading: false,
 };
 
 // Step 6: Create the reducer function that handles state updates
@@ -29,29 +32,22 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
     case 'ADD_TODO':
       return {
         ...state,
-        todos: [
-          ...state.todos,
-          {
-            id: Date.now().toString(),
-            text: action.payload,
-            completed: false,
-            createdAt: new Date(),
-          },
-        ],
+        todos: [action.payload, ...state.todos],
+        isLoading: false,
       };
-    case 'TOGGLE_TODO':
+    case 'UPDATE_TODO':
       return {
         ...state,
         todos: state.todos.map(todo =>
-          todo.id === action.payload
-            ? { ...todo, completed: !todo.completed }
-            : todo
+          todo._id === action.payload._id ? action.payload : todo
         ),
+        isLoading: false,
       };
     case 'DELETE_TODO':
       return {
         ...state,
-        todos: state.todos.filter(todo => todo.id !== action.payload),
+        todos: state.todos.filter(todo => todo._id !== action.payload),
+        isLoading: false,
       };
     case 'SET_FILTER':
       return {
@@ -62,6 +58,12 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
       return {
         ...state,
         todos: action.payload,
+        isLoading: false,
+      };
+    case 'SET_LOADING':
+      return {
+        ...state,
+        isLoading: action.payload,
       };
     default:
       return state;
@@ -72,41 +74,138 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
 const TodoContext = createContext<{
   state: TodoState;
   dispatch: React.Dispatch<TodoAction>;
+  addTodo: (text: string, priority?: 'low' | 'medium' | 'high', dueDate?: Date) => Promise<void>;
+  updateTodo: (id: string, updates: Partial<Todo>) => Promise<void>;
+  deleteTodo: (id: string) => Promise<void>;
+  loadTodos: () => Promise<void>;
 } | null>(null);
 
 // Step 8: Create the provider component
 export function TodoProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(todoReducer, initialState);
 
-  // Step 9: Load todos from localStorage on component mount (user-specific)
-  useEffect(() => {
-    const userId = localStorage.getItem('user-id');
-    if (userId) {
-      const savedTodos = localStorage.getItem(`todos-${userId}`);
-      if (savedTodos) {
-        try {
-          const parsedTodos = JSON.parse(savedTodos).map((todo: any) => ({
-            ...todo,
-            createdAt: new Date(todo.createdAt),
-          }));
-          dispatch({ type: 'LOAD_TODOS', payload: parsedTodos });
-        } catch (error) {
-          console.error('Error loading todos from localStorage:', error);
-        }
+  // API functions
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('auth-token');
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    };
+  };
+
+  const addTodo = async (text: string, priority: 'low' | 'medium' | 'high' = 'medium', dueDate?: Date) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      const response = await fetch('/api/todos', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          text,
+          priority,
+          dueDate: dueDate?.toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create todo');
       }
+
+      const { todo } = await response.json();
+      dispatch({ type: 'ADD_TODO', payload: todo });
+    } catch (error) {
+      console.error('Error adding todo:', error);
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error;
+    }
+  };
+
+  const updateTodo = async (id: string, updates: Partial<Todo>) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      const response = await fetch(`/api/todos/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update todo');
+      }
+
+      const { todo } = await response.json();
+      dispatch({ type: 'UPDATE_TODO', payload: todo });
+    } catch (error) {
+      console.error('Error updating todo:', error);
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error;
+    }
+  };
+
+  const deleteTodo = async (id: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      const response = await fetch(`/api/todos/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete todo');
+      }
+
+      dispatch({ type: 'DELETE_TODO', payload: id });
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error;
+    }
+  };
+
+  const loadTodos = useCallback(async () => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
+      const response = await fetch('/api/todos', {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to load todos');
+      }
+
+      const { todos } = await response.json();
+      dispatch({ type: 'LOAD_TODOS', payload: todos });
+    } catch (error) {
+      console.error('Error loading todos:', error);
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error;
     }
   }, []);
 
-  // Step 10: Save todos to localStorage whenever todos change (user-specific)
+  // Step 9: Load todos on component mount
   useEffect(() => {
     const userId = localStorage.getItem('user-id');
     if (userId) {
-      localStorage.setItem(`todos-${userId}`, JSON.stringify(state.todos));
+      loadTodos();
     }
-  }, [state.todos]);
+  }, [loadTodos]);
 
   return (
-    <TodoContext.Provider value={{ state, dispatch }}>
+    <TodoContext.Provider value={{ 
+      state, 
+      dispatch, 
+      addTodo, 
+      updateTodo, 
+      deleteTodo, 
+      loadTodos 
+    }}>
       {children}
     </TodoContext.Provider>
   );

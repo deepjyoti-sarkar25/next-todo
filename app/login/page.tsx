@@ -1,45 +1,21 @@
-'use client';
-
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { redirect } from 'next/navigation';
+import { getServerSideUser } from '@/lib/auth';
 import LoginForm from '@/components/LoginForm';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
-// Step 31: Create login page content component
-function LoginPageContent() {
-  const { state } = useAuth();
-  const router = useRouter();
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (state.isAuthenticated && !state.isLoading) {
-      router.push('/');
-    }
-  }, [state.isAuthenticated, state.isLoading, router]);
-
-  // Show loading while checking authentication
-  if (state.isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render login form if already authenticated
-  if (state.isAuthenticated) {
-    return null;
+export default async function LoginPage() {
+  // Check if user is already authenticated
+  const user = await getServerSideUser();
+  
+  if (user) {
+    redirect('/');
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        {/* Step 32: Back to home link */}
+        {/* Back to home link */}
         <div className="text-center">
           <Link
             href="/"
@@ -50,10 +26,10 @@ function LoginPageContent() {
           </Link>
         </div>
 
-        {/* Step 33: Login form */}
+        {/* Login form */}
         <LoginForm />
 
-        {/* Step 34: Link to register */}
+        {/* Link to register */}
         <div className="text-center">
           <p className="text-gray-600 dark:text-gray-400">
             Don&apos;t have an account?{' '}
@@ -67,14 +43,5 @@ function LoginPageContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-// Step 31: Create login page
-export default function LoginPage() {
-  return (
-    <AuthProvider>
-      <LoginPageContent />
-    </AuthProvider>
   );
 }

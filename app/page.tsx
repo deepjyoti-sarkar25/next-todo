@@ -1,12 +1,11 @@
-'use client';
-
+import { redirect } from 'next/navigation';
+import { getServerSideUser } from '@/lib/auth';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { TodoProvider } from '@/contexts/TodoContext';
 import TodoInput from '@/components/TodoInput';
 import TodoList from '@/components/TodoList';
 import UserProfile from '@/components/UserProfile';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { LogIn, UserPlus } from 'lucide-react';
 
@@ -25,7 +24,9 @@ function TodoApp() {
               Stay organized and get things done
             </p>
           </div>
-          <UserProfile />
+          <div className="flex items-center gap-4">
+            <UserProfile />
+          </div>
         </header>
 
         {/* Step 53: Main todo app content */}
@@ -91,39 +92,23 @@ function LandingPage() {
   );
 }
 
-// Step 57: Auth wrapper component to handle authentication state
-function AuthWrapper() {
-  const { state } = useAuth();
+// Step 56: Main page component with SSR authentication
+export default async function Home() {
+  const user = await getServerSideUser();
+  
+  console.log('Home page - user:', user ? 'authenticated' : 'not authenticated');
 
-  if (state.isLoading) {
+  if (user) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (state.isAuthenticated) {
-    return (
-      <TodoProvider>
-        <ProtectedRoute>
-          <TodoApp />
-        </ProtectedRoute>
-      </TodoProvider>
+      <AuthProvider>
+        <TodoProvider>
+          <ProtectedRoute>
+            <TodoApp />
+          </ProtectedRoute>
+        </TodoProvider>
+      </AuthProvider>
     );
   }
 
   return <LandingPage />;
-}
-
-// Step 56: Main page component with authentication logic
-export default function Home() {
-  return (
-    <AuthProvider>
-      <AuthWrapper />
-    </AuthProvider>
-  );
 }

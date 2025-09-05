@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { LoginCredentials } from '@/types/auth';
 import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -16,7 +15,6 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login } = useAuth();
   const router = useRouter();
 
   // Step 14: Handle form submission
@@ -27,9 +25,45 @@ export default function LoginForm() {
 
     try {
       console.log('Attempting login with credentials:', credentials);
-      await login(credentials);
+      
+      // Call the API directly
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      const data = await response.json();
+      console.log('Login data:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Clear any old tokens first
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('user-data');
+      localStorage.removeItem('user-id');
+      
+      // Clear old cookies
+      document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+      // Store auth data in localStorage
+      localStorage.setItem('auth-token', data.token);
+      localStorage.setItem('user-data', JSON.stringify(data.user));
+      localStorage.setItem('user-id', data.user._id);
+
+      // Also set the auth cookie for server-side authentication
+      document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure=${process.env.NODE_ENV === 'production'}; samesite=lax`;
+
       console.log('Login successful, redirecting...');
-      router.push('/');
+      console.log('New token:', data.token);
+      console.log('User ID:', data.user._id);
+      
+      // Use window.location.href to ensure a full page reload so the cookie is available
+      window.location.href = '/';
     } catch (err) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Login failed');
